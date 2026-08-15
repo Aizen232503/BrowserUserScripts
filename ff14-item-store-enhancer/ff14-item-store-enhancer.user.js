@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FF14 道具商城和仓库页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/ff14-item-store-enhancer
-// @version      1.0.10
+// @version      1.0.14
 // @description  为 FF14 道具商城和仓库领取弹窗预填角色，不会自动领取
 // @author       Aizen232503
 // @license      MIT
@@ -39,7 +39,16 @@
 
   function setSavedRole(role) {
     GM_setValue(STORAGE_KEY, role);
-    window.dispatchEvent(new Event('ff14-item-store-default-role-changed'));
+    window.dispatchEvent(new CustomEvent('ff14-item-store-default-role-changed', {
+      detail: { role },
+    }));
+  }
+
+  function clearSavedRole() {
+    GM_setValue(STORAGE_KEY, null);
+    window.dispatchEvent(new CustomEvent('ff14-item-store-default-role-changed', {
+      detail: { role: null },
+    }));
   }
 
   async function requestJson(path, parameters) {
@@ -124,16 +133,26 @@
         background: #fff;
         color: #1f2937;
       }
-      .ff14-item-store-actions { display: flex; justify-content: space-between; gap: 8px; }
-      #ff14-item-store-refresh {
+      .ff14-item-store-actions { display: flex; align-items: center; gap: 8px; }
+      #ff14-item-store-clear {
+        flex: 0 0 56px;
         padding: 5px 9px;
         border: 1px solid #cbd5e1;
         border-radius: 4px;
         background: #f8fafc;
         color: #475569;
         cursor: pointer;
+        white-space: nowrap;
       }
-      #ff14-item-store-status { min-height: 19px; color: #64748b; }
+      #ff14-item-store-status {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        color: #64748b;
+        text-align: right;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       .ff14-item-store-native-save {
         margin-right: 10px;
         padding: 9px 14px;
@@ -174,7 +193,7 @@
         </div>
         <div class="ff14-item-store-row">
           <div class="ff14-item-store-actions">
-            <button id="ff14-item-store-refresh" type="button">刷新角色</button>
+            <button id="ff14-item-store-clear" type="button" title="清除当前保存的默认领取角色">重置</button>
             <span id="ff14-item-store-status" role="status" aria-live="polite"></span>
           </div>
         </div>
@@ -184,7 +203,7 @@
 
     const areaSelect = root.querySelector('#ff14-item-store-area');
     const characterSelect = root.querySelector('#ff14-item-store-character');
-    const refreshButton = root.querySelector('#ff14-item-store-refresh');
+    const clearButton = root.querySelector('#ff14-item-store-clear');
     const status = root.querySelector('#ff14-item-store-status');
     let areas = [];
     let characters = [];
@@ -192,6 +211,7 @@
     const setStatus = (message, isError = false) => {
       status.style.color = isError ? '#b45309' : '#64748b';
       status.textContent = message;
+      status.title = message;
     };
 
     const renderAreas = () => {
@@ -254,7 +274,9 @@
       }
     };
 
-    refreshButton.addEventListener('click', loadAreas);
+    clearButton.addEventListener('click', () => {
+      clearSavedRole();
+    });
     areaSelect.addEventListener('change', loadCharacters);
     characterSelect.addEventListener('change', () => {
       const selectedRole = characters.find((role) => (
@@ -275,14 +297,23 @@
     });
 
     // 在领取弹窗中保存角色后，自动将右下角面板同步到同一大区和角色。
-    window.addEventListener('ff14-item-store-default-role-changed', async () => {
+    window.addEventListener('ff14-item-store-default-role-changed', async (event) => {
+      const savedRole = event.detail?.role ?? getSavedRole();
+      if (!savedRole) {
+        renderAreas();
+        characters = [];
+        characterSelect.replaceChildren(new Option('请先选择游戏大区', ''));
+        characterSelect.disabled = true;
+        setStatus('已重置默认角色');
+        return;
+      }
       if (!areas.length) {
         await loadAreas();
         return;
       }
       renderAreas();
       await loadCharacters();
-      setStatus(`已同步默认角色：${roleLabel(getSavedRole())}`);
+      setStatus(`已同步：${roleLabel(savedRole)}`);
     });
 
     loadAreas();
