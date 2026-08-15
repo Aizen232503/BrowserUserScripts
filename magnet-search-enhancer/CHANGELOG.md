@@ -1,5 +1,9 @@
 # 更新日志
 
+## 0.9.4
+
+- 恢复指向公开 GitHub Issues 页面的 `@supportURL`。
+
 ## 0.9.2
 
 - 移除指向私有 GitHub Issues 页面的 `@supportURL`。

@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         盛趣登录页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/sdo-page-enhancer
-// @version      1.2.3
+// @version      1.2.5
 // @description  自动勾选盛趣登录协议，并支持配置默认登录方式和账号
 // @author       Aizen232503
 // @license      GPL-3.0-only
 // @homepageURL  https://github.com/Aizen232503/BrowserUserScripts/tree/main/sdo-page-enhancer
+// @supportURL   https://github.com/Aizen232503/BrowserUserScripts/issues
 // @updateURL    https://raw.githubusercontent.com/Aizen232503/BrowserUserScripts/main/sdo-page-enhancer/sdo-page-enhancer.user.js
 // @downloadURL  https://raw.githubusercontent.com/Aizen232503/BrowserUserScripts/main/sdo-page-enhancer/sdo-page-enhancer.user.js
 // @match        https://login.u.sdo.com/sdo/iframe/*
@@ -254,7 +255,7 @@
     const root = document.createElement('aside');
     root.id = 'sdo-enhancer-settings';
     root.innerHTML = `
-      <button id="sdo-enhancer-settings-toggle" type="button" aria-expanded="false">登录设置</button>
+      <button id="sdo-enhancer-settings-toggle" type="button" aria-expanded="false">脚本配置</button>
       <section id="sdo-enhancer-settings-panel" hidden>
         <div class="sdo-enhancer-settings-title">盛趣登录设置</div>
         <div class="sdo-enhancer-setting-row">
