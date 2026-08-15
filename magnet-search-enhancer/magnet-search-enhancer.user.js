@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         磁力搜索增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/magnet-search-enhancer
-// @version      1.0.0
+// @version      1.0.1
 // @description  优化磁力搜索结果，对常见的磁力网站类型将磁力链复制、下载按钮直接外显，并含有筛选和去广告功能，更多网站适配中
 // @author       Aizen232503
 // @license      MIT
@@ -817,15 +817,25 @@
     }
     allResults.forEach((result) => {
       const links = [...result.querySelectorAll('a[href]')];
-      const isBlocked = links.some((link) => {
+      const hasBlockedHost = links.some((link) => {
         try {
           return blockedHosts.has(new URL(link.href, location.href).hostname);
         } catch {
           return false;
         }
       });
+      const headingLink = result.querySelector('.panel-title a[href]');
+      const onlineLabel = headingLink?.querySelector('.label');
+      let isExternalOnlinePromotion = false;
+      if (headingLink && onlineLabel?.textContent.trim() === '在线') {
+        try {
+          isExternalOnlinePromotion = new URL(headingLink.href, location.href).origin !== location.origin;
+        } catch {
+          // 无法解析的标题链接不作为站外推广判断依据。
+        }
+      }
 
-      if (isBlocked) result.remove();
+      if (hasBlockedHost || isExternalOnlinePromotion) result.remove();
     });
 
     const results = [...resultContainer.querySelectorAll(':scope > .panel.panel-default')]
