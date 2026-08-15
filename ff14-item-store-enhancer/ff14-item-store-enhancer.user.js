@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FF14 道具商城和仓库页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/ff14-item-store-enhancer
-// @version      1.0.8
+// @version      1.0.9
 // @description  为 FF14 道具商城和仓库领取弹窗预填角色，不会自动领取
 // @author       Aizen232503
 // @license      MIT
@@ -9,7 +9,7 @@
 // @supportURL   https://github.com/Aizen232503/BrowserUserScripts/issues
 // @updateURL    https://raw.githubusercontent.com/Aizen232503/BrowserUserScripts/main/ff14-item-store-enhancer/ff14-item-store-enhancer.user.js
 // @downloadURL  https://raw.githubusercontent.com/Aizen232503/BrowserUserScripts/main/ff14-item-store-enhancer/ff14-item-store-enhancer.user.js
-// @match        https://qu.sdo.com/*
+// @match        https://qu.sdo.com/personal-center*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @run-at       document-idle
@@ -39,6 +39,7 @@
 
   function setSavedRole(role) {
     GM_setValue(STORAGE_KEY, role);
+    window.dispatchEvent(new Event('ff14-item-store-default-role-changed'));
   }
 
   async function requestJson(path, parameters) {
@@ -79,7 +80,7 @@
   }
 
   // ============================================================================
-  // 右下角折叠配置面板
+  // 右下角常驻配置面板
   // ============================================================================
 
   function addSettingsPanel() {
@@ -92,40 +93,19 @@
         right: 16px;
         bottom: 15vh;
         z-index: 2147483646;
-        display: flex;
-        justify-content: flex-end;
-        width: 110px;
+        width: 300px;
+        max-width: calc(100vw - 32px);
         color: #1f2937;
         font: 13px/1.45 sans-serif;
       }
       #ff14-item-store-settings * { box-sizing: border-box; }
-      #ff14-item-store-settings-toggle {
-        padding: 6px 10px;
-        border: 1px solid #cbd5e1;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, .96);
-        color: #475569;
-        box-shadow: 0 3px 10px rgba(15, 23, 42, .14);
-        cursor: pointer;
-      }
-      #ff14-item-store-settings-toggle:hover,
-      #ff14-item-store-settings-toggle[aria-expanded="true"] {
-        border-color: #ce0f30;
-        color: #ce0f30;
-      }
       #ff14-item-store-settings-panel {
-        position: absolute;
-        right: 0;
-        bottom: 40px;
-        width: 300px;
-        max-width: calc(100vw - 32px);
         padding: 10px 12px;
         border: 1px solid #cbd5e1;
         border-radius: 10px;
         background: #fff;
         box-shadow: 0 5px 18px rgba(0, 0, 0, .18);
       }
-      #ff14-item-store-settings-panel[hidden] { display: none; }
       .ff14-item-store-title { margin-bottom: 8px; font-weight: 700; }
       .ff14-item-store-row {
         display: grid;
@@ -182,12 +162,11 @@
     const root = document.createElement('aside');
     root.id = 'ff14-item-store-settings';
     root.innerHTML = `
-      <button id="ff14-item-store-settings-toggle" type="button" aria-expanded="false">默认角色</button>
-      <section id="ff14-item-store-settings-panel" hidden>
+      <section id="ff14-item-store-settings-panel">
         <div class="ff14-item-store-title">默认角色</div>
         <div class="ff14-item-store-row">
           <label for="ff14-item-store-area">游戏大区</label>
-          <select id="ff14-item-store-area" disabled><option>展开后加载角色信息</option></select>
+          <select id="ff14-item-store-area" disabled><option>正在加载角色信息</option></select>
         </div>
         <div class="ff14-item-store-row">
           <label for="ff14-item-store-character">游戏角色</label>
@@ -203,8 +182,6 @@
     `;
     document.body.appendChild(root);
 
-    const toggle = root.querySelector('#ff14-item-store-settings-toggle');
-    const panel = root.querySelector('#ff14-item-store-settings-panel');
     const areaSelect = root.querySelector('#ff14-item-store-area');
     const characterSelect = root.querySelector('#ff14-item-store-character');
     const refreshButton = root.querySelector('#ff14-item-store-refresh');
@@ -277,12 +254,6 @@
       }
     };
 
-    toggle.addEventListener('click', async () => {
-      const expanded = panel.hidden;
-      panel.hidden = !expanded;
-      toggle.setAttribute('aria-expanded', String(expanded));
-      if (expanded && !areas.length) await loadAreas();
-    });
     refreshButton.addEventListener('click', loadAreas);
     areaSelect.addEventListener('change', loadCharacters);
     characterSelect.addEventListener('change', () => {
@@ -302,6 +273,19 @@
       });
       setStatus(`已设为 ${roleLabel(selectedRole)}`);
     });
+
+    // 在领取弹窗中保存角色后，自动将右下角面板同步到同一大区和角色。
+    window.addEventListener('ff14-item-store-default-role-changed', async () => {
+      if (!areas.length) {
+        await loadAreas();
+        return;
+      }
+      renderAreas();
+      await loadCharacters();
+      setStatus(`已同步默认角色：${roleLabel(getSavedRole())}`);
+    });
+
+    loadAreas();
   }
 
   // ============================================================================
@@ -473,5 +457,8 @@
   }
 
   addSettingsPanel();
-  if (location.pathname === '/personal-center') observeAcquireDialog();
+  if (
+    location.pathname === '/personal-center'
+    || location.pathname.startsWith('/personal-center/')
+  ) observeAcquireDialog();
 })();
