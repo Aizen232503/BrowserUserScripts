@@ -1,7 +1,7 @@
 .DS_Store
 Thumbs.db
 *.log
-magnet-search-enhancer/test.txt
+magnet-search-enhancer/*.txt
 .idea/
 .vscode/
 test/

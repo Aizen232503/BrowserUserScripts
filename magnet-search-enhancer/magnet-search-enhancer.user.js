@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         磁力搜索增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/magnet-search-enhancer
-// @version      0.9.5
+// @version      0.9.9
 // @description  优化磁力搜索结果，对常见的磁力网站类型将磁力链复制、下载按钮直接外显，并含有筛选和去广告功能，更多网站适配中
 // @author       Aizen232503
 // @license      MIT
@@ -127,6 +127,8 @@
       'font-size:12px',
       'font-weight:700',
       'white-space:nowrap',
+      'vertical-align:middle',
+      'align-self:center',
     ].join(';');
     marker.textContent = '已缓存磁力链接';
     container.append(marker);
@@ -369,8 +371,188 @@
     textarea.remove();
   }
 
+  /**
+   * 适配新版 SkrBT 的 ul.list-unstyled 搜索列表。
+   * 每条结果由标题 li、.rrmi 元信息 li 和若干 .rrf 文件 li 组成，详情链接位于 .rrmi。
+   */
+  function enhanceSkrbtListSearch(resultContainer) {
+    const listEntries = [...resultContainer.querySelectorAll(':scope > ul.list-unstyled')];
+    // 新版 SkrBT 会将“在线”外站推广也渲染为同级列表项；没有站内详情链接的外站项直接移除。
+    listEntries.forEach((result) => {
+      const titleLink = result.querySelector(':scope > li .rrt[href]');
+      const detailLink = result.querySelector(':scope > .rrmi a[href*="/detail/"]');
+      const isOnlineAd = titleLink
+        && !detailLink
+        && (titleLink.querySelector('.label')?.textContent.includes('在线')
+          || new URL(titleLink.href, location.href).origin !== location.origin);
+      if (isOnlineAd) result.remove();
+    });
+
+    const results = listEntries.filter((result) => (
+      result.isConnected && result.querySelector(':scope > .rrmi a[href*="/detail/"]')
+    ));
+    if (!results.length || document.getElementById('mse-skrbt-bar')) return;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      #mse-skrbt-bar { display:flex; align-items:center; gap:8px; margin:12px 0; padding:10px; border:1px solid #ddd; background:#f8f8f8; }
+      #mse-skrbt-bar input { min-width:160px; max-width:360px; }
+      #mse-skrbt-count { color:#666; white-space:nowrap; }
+      .mse-skrbt-index { display:inline-block; min-width:28px; color:#777; font-weight:700; }
+      .mse-skrbt-actions { display:inline-flex; flex-wrap:wrap; gap:6px; align-items:center; margin-left:10px; }
+      .mse-skrbt-actions .btn { border-radius:3px; font-weight:500; line-height:1.5; }
+      .mse-skrbt-copy { color:#17633a; background:#eef9f2; border-color:#9bcdb0; }
+      .mse-skrbt-open { color:#fff; background:#2878b5; border-color:#21699f; }
+      .mse-skrbt-files-collapsed { display:none; }
+      @media (max-width:767px) { #mse-skrbt-bar { align-items:stretch; flex-direction:column; } #mse-skrbt-bar input { width:100%; max-width:none; } }
+    `;
+    document.head.append(style);
+
+    const toolbar = document.createElement('div');
+    toolbar.id = 'mse-skrbt-bar';
+    toolbar.innerHTML = `
+      <input class="form-control" type="search" placeholder="在本页结果中筛选" aria-label="在本页结果中筛选">
+      <button class="btn btn-default" type="button" aria-expanded="true">折叠全部</button>
+      <span id="mse-skrbt-count"></span>
+    `;
+    resultContainer.insertBefore(toolbar, results[0]);
+
+    function extractMagnet(html) {
+      const detailDocument = new DOMParser().parseFromString(html, 'text/html');
+      const directMagnet = detailDocument.querySelector(
+        '#magnet[href^="magnet:?xt=urn:btih:"], a[href^="magnet:?xt=urn:btih:"]',
+      )?.getAttribute('href');
+      if (/^magnet:\?xt=urn:btih:[a-z0-9]+/i.test(directMagnet ?? '')) return directMagnet;
+
+      return html.replaceAll('&amp;', '&').replaceAll('&#38;', '&')
+        .match(/magnet:\?xt=urn:btih:[a-z0-9]+(?:&[^\s"'<>]*)*/i)?.[0] ?? null;
+    }
+
+    async function loadMagnet(detailUrl) {
+      const response = await fetch(detailUrl, {
+        credentials: 'same-origin',
+        headers: { Accept: 'text/html' },
+      });
+      if (!response.ok) throw new Error(`详情页请求失败：HTTP ${response.status}`);
+
+      const magnet = extractMagnet(await response.text());
+      if (!magnet) throw new Error('详情页中没有找到磁力链接');
+      return magnet;
+    }
+
+    const magnetCache = createMagnetCache(loadMagnet);
+
+    async function withMagnet(button, detailUrl, action, successText) {
+      const originalHtml = button.innerHTML;
+      const originalTitle = button.title;
+      button.disabled = true;
+      button.textContent = '正在获取...';
+      try {
+        action(await magnetCache.request(detailUrl));
+        if (successText) {
+          button.textContent = successText;
+          await new Promise((resolve) => window.setTimeout(resolve, 800));
+        }
+      } catch (error) {
+        button.textContent = '获取失败';
+        button.title = error instanceof Error ? error.message : String(error);
+        await new Promise((resolve) => window.setTimeout(resolve, 1400));
+      } finally {
+        button.disabled = false;
+        button.innerHTML = originalHtml;
+        button.title = originalTitle;
+      }
+    }
+
+    function setFilesVisible(result, visible) {
+      result.querySelectorAll(':scope > .rrf').forEach((row) => {
+        row.classList.toggle('mse-skrbt-files-collapsed', !visible);
+      });
+    }
+
+    results.forEach((result, index) => {
+      const titleLink = result.querySelector(':scope > li .rrt');
+      const metaRow = result.querySelector(':scope > .rrmi');
+      const detailLink = metaRow?.querySelector('a[href*="/detail/"]');
+      if (!metaRow || !detailLink) return;
+
+      if (titleLink) {
+        const marker = document.createElement('span');
+        marker.className = 'mse-skrbt-index';
+        marker.textContent = `#${index + 1}`;
+        titleLink.parentElement?.prepend(marker);
+      }
+
+      const actions = document.createElement('span');
+      actions.className = 'mse-skrbt-actions';
+      const detailUrl = detailLink.href;
+
+      const openButton = document.createElement('button');
+      openButton.type = 'button';
+      openButton.className = 'btn btn-xs mse-skrbt-open';
+      openButton.innerHTML = '<i class="fa fa-magnet"></i> 打开';
+      openButton.title = '点击后从详情页获取并打开磁力链接';
+      openButton.addEventListener('click', () => {
+        withMagnet(openButton, detailUrl, (magnet) => { window.location.href = magnet; });
+      });
+
+      const copyButton = document.createElement('button');
+      copyButton.type = 'button';
+      copyButton.className = 'btn btn-xs mse-skrbt-copy';
+      copyButton.innerHTML = '<i class="fa fa-copy"></i> 复制';
+      copyButton.title = '点击后从详情页获取并复制磁力链接';
+      copyButton.addEventListener('click', () => {
+        withMagnet(copyButton, detailUrl, copyText, '已复制');
+      });
+
+      const toggleButton = document.createElement('button');
+      toggleButton.type = 'button';
+      toggleButton.className = 'btn btn-xs btn-default';
+      toggleButton.textContent = '折叠文件';
+      toggleButton.setAttribute('aria-expanded', 'true');
+      toggleButton.addEventListener('click', () => {
+        const shouldExpand = toggleButton.getAttribute('aria-expanded') === 'false';
+        setFilesVisible(result, shouldExpand);
+        toggleButton.setAttribute('aria-expanded', String(shouldExpand));
+        toggleButton.textContent = shouldExpand ? '折叠文件' : '展开文件';
+      });
+
+      actions.append(openButton, copyButton, toggleButton);
+      metaRow.append(actions);
+      addCacheStatusMarker(magnetCache, detailUrl, metaRow);
+    });
+
+    const filterInput = toolbar.querySelector('input');
+    const countLabel = toolbar.querySelector('#mse-skrbt-count');
+    const allToggle = toolbar.querySelector('button');
+    const applyFilter = () => {
+      const query = filterInput.value.trim().toLocaleLowerCase();
+      let visibleCount = 0;
+      results.forEach((result) => {
+        const matches = !query || result.textContent.toLocaleLowerCase().includes(query);
+        result.hidden = !matches;
+        if (matches) visibleCount += 1;
+      });
+      countLabel.textContent = `显示 ${visibleCount} / ${results.length} 条`;
+    };
+    filterInput.addEventListener('input', applyFilter);
+    allToggle.addEventListener('click', () => {
+      const shouldExpand = allToggle.getAttribute('aria-expanded') === 'false';
+      results.forEach((result) => setFilesVisible(result, shouldExpand));
+      allToggle.setAttribute('aria-expanded', String(shouldExpand));
+      allToggle.textContent = shouldExpand ? '折叠全部' : '展开全部';
+    });
+    applyFilter();
+
+    addAutoFetchControl(
+      () => results.map((result) => result.querySelector(':scope > .rrmi a[href*="/detail/"]')?.href)
+        .filter(Boolean),
+      magnetCache,
+    );
+  }
+
   // ============================================================================
-  // 第二类：BT4G 搜索页与磁链详情页
+  // 第三类：BT4G 搜索页与磁链详情页
   // ============================================================================
 
   /**
@@ -587,16 +769,19 @@
   }
 
   // ============================================================================
-  // 第一类：熊猫、SkrBT、老王、Lemon 同构 Bootstrap 搜索页
+  // 第二类：熊猫、SkrBT、老王、Lemon 同构 Bootstrap 搜索页
   // ============================================================================
 
   /** 为共享同一套 DOM 结构的搜索站点添加过滤、折叠和磁链快捷操作。 */
   function enhanceLegacyBootstrapSearch() {
     if (!location.pathname.startsWith('/search')) return;
 
-    // 旧版镜像使用 .left，新版老王使用居中的 .col-md-6 作为结果容器。
+    // 旧版镜像使用 .left；新版页面有多个 .col-md-6，须选出实际包含结果的那个容器。
+    const centeredContainers = [...document.querySelectorAll('.container-fluid > .row > .col-md-6')];
     const resultContainer = document.querySelector('.left')
-      ?? document.querySelector('.container-fluid > .row > .col-md-6');
+      ?? centeredContainers.find((container) => container.querySelector(
+        ':scope > .panel.panel-default, :scope > ul.list-unstyled > .rrmi a[href*="/detail/"]',
+      ));
     if (!resultContainer) return;
 
     /** 兼容旧版页脚详情入口和新版标题中的 /detail/ 入口。 */
@@ -618,9 +803,18 @@
     }
 
     // 这些域名对应混入搜索结果的推广链接；只移除包含该链接的结果卡片。
-    const blockedHosts = new Set(['v.lihuatvk.cc']);
+    const blockedHosts = new Set([
+      'v.lihuatvk.cc',
+      '2w0y6.com',
+      'www.2w0y6.com',
+    ]);
 
     const allResults = [...resultContainer.querySelectorAll(':scope > .panel.panel-default')];
+    // SkrBT 新版改为连续的 ul.list-unstyled 列表，不再使用 panel 结果卡片。
+    if (!allResults.length) {
+      enhanceSkrbtListSearch(resultContainer);
+      return;
+    }
     allResults.forEach((result) => {
       const links = [...result.querySelectorAll('a[href]')];
       const isBlocked = links.some((link) => {
@@ -749,7 +943,7 @@
       return decodedSource.match(/magnet:\?xt=urn:btih:[a-z0-9]+(?:&[^\s"'<>]*)*/i)?.[0] ?? null;
     }
 
-    /** 请求第一类网站详情页并提取磁链；缓存和失败清理由通用模块负责。 */
+    /** 请求第二类网站详情页并提取磁链；缓存和失败清理由通用模块负责。 */
     async function loadMagnet(detailUrl) {
       const response = await fetch(detailUrl, {
         credentials: 'same-origin',
@@ -899,7 +1093,7 @@
   }
 
   // ============================================================================
-  // 第三类：磁力猫、磁力狗 Zsky 资源搜索页
+  // 第一类：磁力猫、磁力狗 Zsky 资源搜索页
   // ============================================================================
 
   /**
@@ -913,6 +1107,7 @@
     style.textContent = `
       .mse-zsky-actions {
         display: flex;
+        align-items: center;
         flex-wrap: wrap;
         gap: 8px;
         margin: 10px 0 4px;
@@ -959,7 +1154,7 @@
       return detailHash ? `magnet:?xt=urn:btih:${detailHash}` : null;
     }
 
-    /** 请求第三类网站详情页并提取磁链；缓存和失败清理由通用模块负责。 */
+    /** 请求第一类网站详情页并提取磁链；缓存和失败清理由通用模块负责。 */
     async function loadZskyMagnet(detailUrl) {
       const response = await fetch(detailUrl, {
         credentials: 'same-origin',
@@ -1046,6 +1241,10 @@
   // 将 DOM 结构相同的站点归为一组，新增镜像域名时只需更新此表。
   const SITE_GROUPS = [
     {
+      type: 'zsky-resource-search',
+      hosts: ['clmclm.com', 'www.clmclm.com', 'clgclg.com', 'www.clgclg.com'],
+    },
+    {
       type: 'legacy-bootstrap-search',
       hosts: [
         'xiongmaogb.top',
@@ -1062,20 +1261,16 @@
       type: 'bt4g-pages',
       hosts: ['bt4gprx.com', 'www.bt4gprx.com'],
     },
-    {
-      type: 'zsky-resource-search',
-      hosts: ['clmclm.com', 'www.clmclm.com', 'clgclg.com', 'www.clgclg.com'],
-    },
   ];
 
   const siteGroup = SITE_GROUPS.find(({ hosts }) => hosts.includes(location.hostname));
   if (!siteGroup) return;
 
-  if (siteGroup.type === 'bt4g-pages') {
-    enhanceBt4g();
+  if (siteGroup.type === 'zsky-resource-search') {
+    enhanceZskyResourceSearch();
   } else if (siteGroup.type === 'legacy-bootstrap-search') {
     enhanceLegacyBootstrapSearch();
-  } else if (siteGroup.type === 'zsky-resource-search') {
-    enhanceZskyResourceSearch();
+  } else if (siteGroup.type === 'bt4g-pages') {
+    enhanceBt4g();
   }
 })();
