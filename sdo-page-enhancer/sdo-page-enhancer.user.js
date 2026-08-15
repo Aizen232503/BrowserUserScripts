@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         盛趣登录页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/sdo-page-enhancer
-// @version      1.2.2
+// @version      1.2.3
 // @description  自动勾选盛趣登录协议，并支持配置默认登录方式和账号
 // @author       Aizen232503
 // @license      GPL-3.0-only
@@ -148,17 +148,40 @@
         right: 16px;
         bottom: 16px;
         z-index: 2147483646;
+        display: flex;
+        justify-content: flex-end;
+        width: 100px;
+        color: #1f2937;
+        font: 13px/1.45 sans-serif;
+      }
+      #sdo-enhancer-settings * { box-sizing: border-box; }
+      #sdo-enhancer-settings-toggle {
+        padding: 6px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .96);
+        color: #475569;
+        box-shadow: 0 3px 10px rgba(15, 23, 42, .14);
+        cursor: pointer;
+      }
+      #sdo-enhancer-settings-toggle:hover,
+      #sdo-enhancer-settings-toggle[aria-expanded="true"] {
+        border-color: #e5004f;
+        color: #e5004f;
+      }
+      #sdo-enhancer-settings-panel {
+        position: absolute;
+        right: 0;
+        bottom: 40px;
         width: 280px;
         max-width: calc(100vw - 32px);
         padding: 10px 12px;
         border: 1px solid #cbd5e1;
         border-radius: 10px;
         background: #fff;
-        color: #1f2937;
-        font: 13px/1.45 sans-serif;
         box-shadow: 0 5px 18px rgba(0, 0, 0, .18);
       }
-      #sdo-enhancer-settings * { box-sizing: border-box; }
+      #sdo-enhancer-settings-panel[hidden] { display: none; }
       .sdo-enhancer-settings-title {
         margin-bottom: 8px;
         font-weight: 700;
@@ -231,26 +254,37 @@
     const root = document.createElement('aside');
     root.id = 'sdo-enhancer-settings';
     root.innerHTML = `
-      <div class="sdo-enhancer-settings-title">盛趣登录设置</div>
-      <div class="sdo-enhancer-setting-row">
-        <span class="sdo-enhancer-setting-label">默认登录方式</span>
-        <div class="sdo-enhancer-radio-group">
-          <label class="sdo-enhancer-radio-option"><input type="radio" name="sdo-enhancer-default-tab" value="index"><span>密码登录</span></label>
-          <label class="sdo-enhancer-radio-option"><input type="radio" name="sdo-enhancer-default-tab" value="mobile"><span>一键登录</span></label>
-          <label class="sdo-enhancer-radio-option"><input type="radio" name="sdo-enhancer-default-tab" value="code2d"><span>二维码</span></label>
+      <button id="sdo-enhancer-settings-toggle" type="button" aria-expanded="false">登录设置</button>
+      <section id="sdo-enhancer-settings-panel" hidden>
+        <div class="sdo-enhancer-settings-title">盛趣登录设置</div>
+        <div class="sdo-enhancer-setting-row">
+          <span class="sdo-enhancer-setting-label">默认登录方式</span>
+          <div class="sdo-enhancer-radio-group">
+            <label class="sdo-enhancer-radio-option"><input type="radio" name="sdo-enhancer-default-tab" value="index"><span>密码登录</span></label>
+            <label class="sdo-enhancer-radio-option"><input type="radio" name="sdo-enhancer-default-tab" value="mobile"><span>一键登录</span></label>
+            <label class="sdo-enhancer-radio-option"><input type="radio" name="sdo-enhancer-default-tab" value="code2d"><span>二维码</span></label>
+          </div>
         </div>
-      </div>
-      <label class="sdo-enhancer-setting-row">
-        <span class="sdo-enhancer-setting-label">默认账号（按 Enter 生效）</span>
-        <input id="sdo-enhancer-default-account" type="text" maxlength="50"
-          autocomplete="off" placeholder="留空并回车可清除设置">
-      </label>
-      <div id="sdo-enhancer-settings-status" role="status" aria-live="polite">设置会保存在本地</div>
+        <label class="sdo-enhancer-setting-row">
+          <span class="sdo-enhancer-setting-label">默认账号（按 Enter 生效）</span>
+          <input id="sdo-enhancer-default-account" type="text" maxlength="50"
+            autocomplete="off" placeholder="留空并回车可清除设置">
+        </label>
+        <div id="sdo-enhancer-settings-status" role="status" aria-live="polite">设置会保存在本地</div>
+      </section>
     `;
     document.body.appendChild(root);
 
+    const toggle = root.querySelector('#sdo-enhancer-settings-toggle');
+    const panel = root.querySelector('#sdo-enhancer-settings-panel');
     const accountInput = root.querySelector('#sdo-enhancer-default-account');
     const status = root.querySelector('#sdo-enhancer-settings-status');
+
+    toggle.addEventListener('click', () => {
+      const expanded = panel.hidden;
+      panel.hidden = !expanded;
+      toggle.setAttribute('aria-expanded', String(expanded));
+    });
 
     root.querySelectorAll('input[name="sdo-enhancer-default-tab"]').forEach((radio) => {
       radio.checked = radio.value === config.defaultLoginTab;
