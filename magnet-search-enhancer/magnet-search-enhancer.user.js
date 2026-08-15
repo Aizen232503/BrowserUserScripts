@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         磁力搜索增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/magnet-search-enhancer
-// @version      1.0.1
+// @version      1.0.2
 // @description  优化磁力搜索结果，对常见的磁力网站类型将磁力链复制、下载按钮直接外显，并含有筛选和去广告功能，更多网站适配中
 // @author       Aizen232503
 // @license      MIT
@@ -49,6 +49,26 @@
     intervalSeconds: 1,
     retries: 3,
   };
+
+  const SECONDARY_FILTER_SETTING_KEY = 'mse-use-secondary-filter';
+
+  /** 读取跨站共享的二次筛选开关；默认不使用。 */
+  function getSecondaryFilterEnabled() {
+    try {
+      return Boolean(GM_getValue(SECONDARY_FILTER_SETTING_KEY, false));
+    } catch {
+      return false;
+    }
+  }
+
+  /** 保存跨站共享的二次筛选开关。 */
+  function setSecondaryFilterEnabled(enabled) {
+    try {
+      GM_setValue(SECONDARY_FILTER_SETTING_KEY, enabled);
+    } catch {
+      // 存储不可用时，开关仍在当前页面生效。
+    }
+  }
 
   /** 读取跨域共享的自动获取配置；读取异常时使用默认值。 */
   function getAutoFetchSetting(name) {
@@ -396,7 +416,9 @@
     const style = document.createElement('style');
     style.textContent = `
       #mse-skrbt-bar { display:flex; align-items:center; gap:8px; margin:12px 0; padding:10px; border:1px solid #ddd; background:#f8f8f8; }
-      #mse-skrbt-bar input { min-width:160px; max-width:360px; }
+      #mse-skrbt-bar .mse-secondary-filter-toggle { display:flex; align-items:center; gap:4px; margin:0; white-space:nowrap; }
+      #mse-skrbt-bar input[type="search"] { min-width:160px; max-width:360px; }
+      #mse-skrbt-bar .mse-secondary-filter-toggle input { margin:0; }
       #mse-skrbt-count { color:#666; white-space:nowrap; }
       .mse-skrbt-index { display:inline-block; min-width:28px; color:#777; font-weight:700; }
       .mse-skrbt-actions { display:inline-flex; flex-wrap:wrap; gap:6px; align-items:center; margin-left:10px; }
@@ -404,13 +426,16 @@
       .mse-skrbt-copy { color:#17633a; background:#eef9f2; border-color:#9bcdb0; }
       .mse-skrbt-open { color:#fff; background:#2878b5; border-color:#21699f; }
       .mse-skrbt-files-collapsed { display:none; }
-      @media (max-width:767px) { #mse-skrbt-bar { align-items:stretch; flex-direction:column; } #mse-skrbt-bar input { width:100%; max-width:none; } }
+      @media (max-width:767px) { #mse-skrbt-bar { align-items:stretch; flex-direction:column; } #mse-skrbt-bar input[type="search"] { width:100%; max-width:none; } }
     `;
     document.head.append(style);
 
     const toolbar = document.createElement('div');
     toolbar.id = 'mse-skrbt-bar';
     toolbar.innerHTML = `
+      <label class="mse-secondary-filter-toggle">
+        <input type="checkbox"> 使用二次筛选
+      </label>
       <input class="form-control" type="search" placeholder="在本页结果中筛选" aria-label="在本页结果中筛选">
       <button class="btn btn-default" type="button" aria-expanded="true">折叠全部</button>
       <span id="mse-skrbt-count"></span>
@@ -522,11 +547,16 @@
       addCacheStatusMarker(magnetCache, detailUrl, metaRow);
     });
 
-    const filterInput = toolbar.querySelector('input');
+    const secondaryFilterToggle = toolbar.querySelector('.mse-secondary-filter-toggle input');
+    const filterInput = toolbar.querySelector('input[type="search"]');
     const countLabel = toolbar.querySelector('#mse-skrbt-count');
     const allToggle = toolbar.querySelector('button');
+    secondaryFilterToggle.checked = getSecondaryFilterEnabled();
+    filterInput.disabled = !secondaryFilterToggle.checked;
     const applyFilter = () => {
-      const query = filterInput.value.trim().toLocaleLowerCase();
+      const query = secondaryFilterToggle.checked
+        ? filterInput.value.trim().toLocaleLowerCase()
+        : '';
       let visibleCount = 0;
       results.forEach((result) => {
         const matches = !query || result.textContent.toLocaleLowerCase().includes(query);
@@ -535,6 +565,12 @@
       });
       countLabel.textContent = `显示 ${visibleCount} / ${results.length} 条`;
     };
+    secondaryFilterToggle.addEventListener('change', () => {
+      setSecondaryFilterEnabled(secondaryFilterToggle.checked);
+      filterInput.disabled = !secondaryFilterToggle.checked;
+      applyFilter();
+      if (secondaryFilterToggle.checked) filterInput.focus();
+    });
     filterInput.addEventListener('input', applyFilter);
     allToggle.addEventListener('click', () => {
       const shouldExpand = allToggle.getAttribute('aria-expanded') === 'false';
@@ -857,6 +893,17 @@
         min-width: 160px;
         max-width: 360px;
       }
+      #xm-enhancer-bar .mse-secondary-filter-toggle {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin: 0;
+        white-space: nowrap;
+      }
+      #xm-enhancer-bar .mse-secondary-filter-toggle input {
+        min-width: auto;
+        margin: 0;
+      }
       #xm-enhancer-count { color: #666; white-space: nowrap; }
       .xm-result-index {
         display: inline-block;
@@ -913,6 +960,9 @@
     const toolbar = document.createElement('div');
     toolbar.id = 'xm-enhancer-bar';
     toolbar.innerHTML = `
+      <label class="mse-secondary-filter-toggle">
+        <input id="xm-filter-enabled" type="checkbox"> 使用二次筛选
+      </label>
       <input id="xm-filter" class="form-control" type="search"
              placeholder="在本页结果中筛选" aria-label="在本页结果中筛选">
       <button id="xm-toggle-all" class="btn btn-default" type="button"
@@ -924,6 +974,10 @@
     resultContainer.insertBefore(toolbar, firstResult);
 
     const countLabel = toolbar.querySelector('#xm-enhancer-count');
+    const secondaryFilterToggle = toolbar.querySelector('#xm-filter-enabled');
+    const filterInput = toolbar.querySelector('#xm-filter');
+    secondaryFilterToggle.checked = getSecondaryFilterEnabled();
+    filterInput.disabled = !secondaryFilterToggle.checked;
 
     /** 同步单条结果的文件列表、按钮文字及无障碍展开状态。 */
     function setFilesVisible(result, visible) {
@@ -1072,7 +1126,9 @@
 
     /** 根据输入框内容过滤当前页结果，并更新可见数量。 */
     function applyFilter() {
-      const query = toolbar.querySelector('#xm-filter').value.trim().toLocaleLowerCase();
+      const query = secondaryFilterToggle.checked
+        ? filterInput.value.trim().toLocaleLowerCase()
+        : '';
       let visibleCount = 0;
 
       results.forEach((result) => {
@@ -1084,7 +1140,13 @@
       countLabel.textContent = `显示 ${visibleCount} / ${results.length} 条`;
     }
 
-    toolbar.querySelector('#xm-filter').addEventListener('input', applyFilter);
+    secondaryFilterToggle.addEventListener('change', () => {
+      setSecondaryFilterEnabled(secondaryFilterToggle.checked);
+      filterInput.disabled = !secondaryFilterToggle.checked;
+      applyFilter();
+      if (secondaryFilterToggle.checked) filterInput.focus();
+    });
+    filterInput.addEventListener('input', applyFilter);
     toolbar.querySelector('#xm-toggle-all').addEventListener('click', (event) => {
       const button = event.currentTarget;
       const shouldExpand = button.getAttribute('aria-expanded') === 'false';
