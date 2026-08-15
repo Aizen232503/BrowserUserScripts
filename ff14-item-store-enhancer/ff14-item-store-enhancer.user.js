@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FF14 道具商城和仓库页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/ff14-item-store-enhancer
-// @version      1.0.15
+// @version      1.0.16
 // @description  为 FF14 道具商城和仓库领取弹窗预填角色，不会自动领取
 // @author       Aizen232503
 // @license      MIT
@@ -312,7 +312,7 @@
         characters = [];
         characterSelect.replaceChildren(new Option('请先选择游戏大区', ''));
         characterSelect.disabled = true;
-        setStatus('已重置默认角色');
+        setStatus('');
         return;
       }
       if (event.detail?.source === 'panel') return;
