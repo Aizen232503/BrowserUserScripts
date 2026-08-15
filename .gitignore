@@ -1,0 +1,6 @@
+.DS_Store
+Thumbs.db
+*.log
+magnet-search-enhancer/test.txt
+.idea/
+.vscode/
