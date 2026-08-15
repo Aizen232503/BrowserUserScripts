@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FF14 道具商城和仓库页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/ff14-item-store-enhancer
-// @version      1.0.9
+// @version      1.0.10
 // @description  为 FF14 道具商城和仓库领取弹窗预填角色，不会自动领取
 // @author       Aizen232503
 // @license      MIT
@@ -9,7 +9,7 @@
 // @supportURL   https://github.com/Aizen232503/BrowserUserScripts/issues
 // @updateURL    https://raw.githubusercontent.com/Aizen232503/BrowserUserScripts/main/ff14-item-store-enhancer/ff14-item-store-enhancer.user.js
 // @downloadURL  https://raw.githubusercontent.com/Aizen232503/BrowserUserScripts/main/ff14-item-store-enhancer/ff14-item-store-enhancer.user.js
-// @match        https://qu.sdo.com/personal-center*
+// @match        https://qu.sdo.com/*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @run-at       document-idle
