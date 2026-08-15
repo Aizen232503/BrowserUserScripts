@@ -11,6 +11,7 @@
 ## 支持页面
 
 - `https://login.u.sdo.com/sdo/iframe/*`
+- `https://login.u.sdo.com/sdo/Login/LoginFrameFC.php*`
 
 ## 安装方法
 

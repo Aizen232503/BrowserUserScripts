@@ -6,8 +6,8 @@
 
 | 脚本 | 版本 | 功能说明 | 安装 |
 | --- | --- | --- | --- |
-| [磁力搜索增强](./magnet-search-enhancer/) | 0.9.2 | 过滤搜索结果，并增加磁力链接快捷操作。 | [Greasy Fork 安装](https://greasyfork.org/zh-CN/scripts/591460) |
-| [盛趣登录页面增强](./sdo-page-enhancer/) | 1.1.1 | 自动勾选盛趣登录页面的隐私政策与服务协议。 | [安装](./sdo-page-enhancer/sdo-page-enhancer.user.js) |
+| [磁力搜索增强](./magnet-search-enhancer/) | 0.9.3 | 过滤搜索结果，并增加磁力链接快捷操作。 | [Greasy Fork 安装](https://greasyfork.org/zh-CN/scripts/591460) |
+| [盛趣登录页面增强](./sdo-page-enhancer/) | 1.1.3 | 自动勾选盛趣登录页面的隐私政策与服务协议。 | [安装](./sdo-page-enhancer/sdo-page-enhancer.user.js) |
 
 ## 开源许可
 

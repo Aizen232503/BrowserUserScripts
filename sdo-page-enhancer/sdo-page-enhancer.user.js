@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         盛趣登录页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/sdo-page-enhancer
-// @version      1.1.2
+// @version      1.1.3
 // @description  自动勾选盛趣登录页面的隐私政策与服务协议
 // @author       Aizen232503
 // @license      GPL-3.0-only
@@ -9,6 +9,7 @@
 // @updateURL    https://raw.githubusercontent.com/Aizen232503/BrowserUserScripts/main/sdo-page-enhancer/sdo-page-enhancer.user.js
 // @downloadURL  https://raw.githubusercontent.com/Aizen232503/BrowserUserScripts/main/sdo-page-enhancer/sdo-page-enhancer.user.js
 // @match        https://login.u.sdo.com/sdo/iframe/*
+// @match        https://login.u.sdo.com/sdo/Login/LoginFrameFC.php*
 // @run-at       document-idle
 // @grant        none
 // ==/UserScript==
