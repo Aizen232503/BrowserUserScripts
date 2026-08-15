@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FF14 道具商城和仓库页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/ff14-item-store-enhancer
-// @version      1.0.5
+// @version      1.0.6
 // @description  为 FF14 道具商城和仓库领取弹窗预填角色，不会自动领取
 // @author       Aizen232503
 // @license      MIT
@@ -23,10 +23,11 @@
   // ============================================================================
 
   const APP_ID = '100001900';
+  // 角色接口由商城服务域名提供；在 qu.sdo.com 上使用相对路径会返回商城 HTML，而非 JSON。
+  const SHOP_SERVICE_ORIGIN = 'https://sqmallservice.u.sdo.com';
   const STORAGE_KEY = 'ff14-item-store-enhancer-default-character';
   const ROLE_API = {
     areas: '/api/us/accountInfo/getArea',
-    groups: '/api/us/accountInfo/getGroup',
     characters: '/api/us/accountInfo/getCharacter',
   };
 
@@ -41,7 +42,7 @@
   }
 
   async function requestJson(path, parameters) {
-    const url = new URL(path, location.origin);
+    const url = new URL(path, SHOP_SERVICE_ORIGIN);
     Object.entries(parameters).forEach(([key, value]) => url.searchParams.set(key, value));
 
     const response = await fetch(url, { credentials: 'include' });
@@ -67,14 +68,8 @@
     return Array.isArray(areas) ? areas : [];
   }
 
-  async function fetchGroups(areaId) {
-    const data = await requestJson(ROLE_API.groups, { appId: APP_ID, areaId });
-    const groupInfos = parseData(data?.groupInfos, data?.groupInfos || []);
-    return Array.isArray(groupInfos) ? groupInfos : [];
-  }
-
-  async function fetchCharacters(areaId, groupId) {
-    const data = await requestJson(ROLE_API.characters, { appId: APP_ID, areaId, groupId });
+  async function fetchCharacters(areaId) {
+    const data = await requestJson(ROLE_API.characters, { appId: APP_ID, areaId });
     const roleInfos = parseData(data?.roleInfos, data?.roleInfos || []);
     return Array.isArray(roleInfos) ? roleInfos : [];
   }
@@ -95,7 +90,7 @@
       #ff14-item-store-settings {
         position: fixed;
         right: 16px;
-        bottom: 16px;
+        bottom: 15vh;
         z-index: 2147483646;
         display: flex;
         justify-content: flex-end;
@@ -188,12 +183,8 @@
           <select id="ff14-item-store-area" disabled><option>展开后加载角色信息</option></select>
         </div>
         <div class="ff14-item-store-row">
-          <label for="ff14-item-store-group">游戏服务器</label>
-          <select id="ff14-item-store-group" disabled><option>请先选择游戏大区</option></select>
-        </div>
-        <div class="ff14-item-store-row">
           <label for="ff14-item-store-character">游戏角色</label>
-          <select id="ff14-item-store-character" disabled><option>请先选择游戏服务器</option></select>
+          <select id="ff14-item-store-character" disabled><option>请先选择游戏大区</option></select>
         </div>
         <div class="ff14-item-store-row">
           <div class="ff14-item-store-actions">
@@ -208,12 +199,10 @@
     const toggle = root.querySelector('#ff14-item-store-settings-toggle');
     const panel = root.querySelector('#ff14-item-store-settings-panel');
     const areaSelect = root.querySelector('#ff14-item-store-area');
-    const groupSelect = root.querySelector('#ff14-item-store-group');
     const characterSelect = root.querySelector('#ff14-item-store-character');
     const refreshButton = root.querySelector('#ff14-item-store-refresh');
     const status = root.querySelector('#ff14-item-store-status');
     let areas = [];
-    let groups = [];
     let characters = [];
 
     const setStatus = (message, isError = false) => {
@@ -227,16 +216,6 @@
       areas.forEach((area) => areaSelect.add(new Option(area.areaName, area.areaId)));
       areaSelect.disabled = false;
       areaSelect.value = savedRole?.areaId ? String(savedRole.areaId) : '';
-    };
-
-    const renderGroups = () => {
-      const savedRole = getSavedRole();
-      groupSelect.replaceChildren(new Option('请选择游戏服务器', ''));
-      groups.forEach((group) => groupSelect.add(new Option(group.groupName, group.groupId)));
-      groupSelect.disabled = false;
-      groupSelect.value = savedRole && String(savedRole.areaId) === areaSelect.value
-        ? String(savedRole.groupId)
-        : '';
     };
 
     const renderCharacters = () => {
@@ -253,10 +232,9 @@
 
     const loadCharacters = async () => {
       const areaId = areaSelect.value;
-      const groupId = groupSelect.value;
-      if (!areaId || !groupId) {
+      if (!areaId) {
         characters = [];
-        characterSelect.replaceChildren(new Option('请先选择游戏服务器', ''));
+        characterSelect.replaceChildren(new Option('请先选择游戏大区', ''));
         characterSelect.disabled = true;
         return;
       }
@@ -265,7 +243,7 @@
       characterSelect.replaceChildren(new Option('正在加载角色……', ''));
       setStatus('正在加载角色……');
       try {
-        characters = await fetchCharacters(areaId, groupId);
+        characters = await fetchCharacters(areaId);
         renderCharacters();
         setStatus(characters.length ? '请选择要预填的角色' : '该大区没有可用角色');
       } catch (error) {
@@ -275,48 +253,17 @@
       }
     };
 
-    const loadGroups = async () => {
-      const areaId = areaSelect.value;
-      if (!areaId) {
-        groups = [];
-        groupSelect.replaceChildren(new Option('请先选择游戏大区', ''));
-        groupSelect.disabled = true;
-        characters = [];
-        characterSelect.replaceChildren(new Option('请先选择游戏服务器', ''));
-        characterSelect.disabled = true;
-        return;
-      }
-
-      groupSelect.disabled = true;
-      characterSelect.disabled = true;
-      groupSelect.replaceChildren(new Option('正在加载服务器……', ''));
-      characterSelect.replaceChildren(new Option('请先选择游戏服务器', ''));
-      setStatus('正在加载服务器……');
-      try {
-        groups = await fetchGroups(areaId);
-        renderGroups();
-        setStatus(groups.length ? '请选择游戏服务器' : '该大区没有可用服务器');
-        if (groupSelect.value) await loadCharacters();
-      } catch (error) {
-        groups = [];
-        groupSelect.replaceChildren(new Option('服务器加载失败', ''));
-        setStatus(error.message, true);
-      }
-    };
-
     const loadAreas = async () => {
       areaSelect.disabled = true;
-      groupSelect.disabled = true;
       characterSelect.disabled = true;
       areaSelect.replaceChildren(new Option('正在加载大区……', ''));
-      groupSelect.replaceChildren(new Option('请先选择游戏大区', ''));
-      characterSelect.replaceChildren(new Option('请先选择游戏服务器', ''));
+      characterSelect.replaceChildren(new Option('请先选择游戏大区', ''));
       setStatus('正在加载角色信息……');
       try {
         areas = await fetchAreas();
         renderAreas();
         setStatus(areas.length ? '请选择游戏大区' : '未查询到可用大区');
-        if (areaSelect.value) await loadGroups();
+        if (areaSelect.value) await loadCharacters();
       } catch (error) {
         setStatus(error.message, true);
         areaSelect.replaceChildren(new Option('大区加载失败', ''));
@@ -330,21 +277,19 @@
       if (expanded && !areas.length) await loadAreas();
     });
     refreshButton.addEventListener('click', loadAreas);
-    areaSelect.addEventListener('change', loadGroups);
-    groupSelect.addEventListener('change', loadCharacters);
+    areaSelect.addEventListener('change', loadCharacters);
     characterSelect.addEventListener('change', () => {
       const selectedRole = characters.find((role) => (
         `${role.groupId}:${role.characterId}` === characterSelect.value
       ));
       const selectedArea = areas.find((area) => String(area.areaId) === areaSelect.value);
-      const selectedGroup = groups.find((group) => String(group.groupId) === groupSelect.value);
-      if (!selectedArea || !selectedGroup || !selectedRole) return;
+      if (!selectedArea || !selectedRole) return;
 
       setSavedRole({
         areaId: selectedArea.areaId,
         areaName: selectedArea.areaName,
-        groupId: selectedGroup.groupId,
-        groupName: selectedGroup.groupName,
+        groupId: selectedRole.groupId,
+        groupName: selectedRole.groupName,
         characterId: selectedRole.characterId,
         roleName: selectedRole.roleName,
       });
@@ -414,9 +359,10 @@
   function findConfiguredRole(roleList, configuredRole) {
     return roleList.find((role) => (
       String(role.groupId) === String(configuredRole.groupId)
-      && String(role.characterId) === String(configuredRole.characterId)
+      && String(role.characterId || role.roleId) === String(configuredRole.characterId)
     )) || roleList.find((role) => (
-      String(role.value || '').startsWith(`${configuredRole.groupId}-${configuredRole.characterId}`)
+      String(role.value || role.roleValue || '')
+        .startsWith(`${configuredRole.groupId}-${configuredRole.characterId}`)
     ));
   }
 
@@ -428,21 +374,6 @@
         if (role || Date.now() - startedAt >= timeout) {
           window.clearInterval(timer);
           resolve(role || null);
-        }
-      }, 120);
-    });
-  }
-
-  function waitForGroup(viewModel, configuredRole, timeout = 6000) {
-    return new Promise((resolve) => {
-      const startedAt = Date.now();
-      const timer = window.setInterval(() => {
-        const group = (viewModel.grouplist || []).find((item) => (
-          String(item.groupId) === String(configuredRole.groupId)
-        ));
-        if (group || Date.now() - startedAt >= timeout) {
-          window.clearInterval(timer);
-          resolve(group || null);
         }
       }, 120);
     });
@@ -465,14 +396,6 @@
     // 使用商城自身的加载逻辑验证角色仍可领取，再更新其响应式字段。
     if (typeof viewModel.loadGameRole !== 'function') return false;
     viewModel.loadGameRole(areaValue);
-
-    // 部分道具的领取表单先选择“游戏组”，再请求该组下的角色。
-    if ([1, 6].includes(Number(viewModel.acquireMethod))) {
-      const group = await waitForGroup(viewModel, configuredRole);
-      if (!group || typeof viewModel.loadGameRole2 !== 'function') return false;
-      viewModel.groupvalue = group.groupName;
-      viewModel.loadGameRole2(group.groupName);
-    }
 
     const role = await waitForRole(viewModel, configuredRole);
     if (!role) return false;
