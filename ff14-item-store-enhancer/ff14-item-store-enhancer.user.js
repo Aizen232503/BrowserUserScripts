@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FF14 道具商城和仓库页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/ff14-item-store-enhancer
-// @version      1.0.14
+// @version      1.0.15
 // @description  为 FF14 道具商城和仓库领取弹窗预填角色，不会自动领取
 // @author       Aizen232503
 // @license      MIT
@@ -37,10 +37,10 @@
     return role;
   }
 
-  function setSavedRole(role) {
+  function setSavedRole(role, source = 'panel') {
     GM_setValue(STORAGE_KEY, role);
     window.dispatchEvent(new CustomEvent('ff14-item-store-default-role-changed', {
-      detail: { role },
+      detail: { role, source },
     }));
   }
 
@@ -249,7 +249,15 @@
       try {
         characters = await fetchCharacters(areaId);
         renderCharacters();
-        setStatus(characters.length ? '请选择要预填的角色' : '该大区没有可用角色');
+        const savedRole = getSavedRole();
+        const selectedValue = savedRole && String(savedRole.areaId) === areaId
+          ? `${savedRole.groupId}:${savedRole.characterId}`
+          : '';
+        setStatus(
+          selectedValue && characterSelect.value === selectedValue
+            ? `已配置：${roleLabel(savedRole)}`
+            : (characters.length ? '请选择要预填的角色' : '该大区没有可用角色'),
+        );
       } catch (error) {
         characters = [];
         characterSelect.replaceChildren(new Option('角色加载失败', ''));
@@ -293,7 +301,7 @@
         characterId: selectedRole.characterId,
         roleName: selectedRole.roleName,
       });
-      setStatus(`已设为 ${roleLabel(selectedRole)}`);
+      setStatus(`已配置：${roleLabel(selectedRole)}`);
     });
 
     // 在领取弹窗中保存角色后，自动将右下角面板同步到同一大区和角色。
@@ -307,6 +315,7 @@
         setStatus('已重置默认角色');
         return;
       }
+      if (event.detail?.source === 'panel') return;
       if (!areas.length) {
         await loadAreas();
         return;
@@ -347,6 +356,11 @@
     status.classList.toggle('is-error', isError);
   }
 
+  function clearNativePrefillStatus() {
+    const status = getAcquireDialog()?.querySelector('.ff14-item-store-prefill-status');
+    if (status?.textContent.startsWith('已预填默认角色：')) status.remove();
+  }
+
   /** 在商城原生领取弹窗底部增加“设为默认领取角色”按钮，不改变原有领取按钮。 */
   function addNativeSaveButton(viewModel) {
     const dialog = getAcquireDialog();
@@ -369,7 +383,7 @@
         };
         if (!role.areaId || !role.groupId || !role.characterId || !role.roleName) return;
 
-        setSavedRole(role);
+        setSavedRole(role, 'dialog');
         button.textContent = `已设为默认：${roleLabel(role)}`;
       });
       footer.prepend(button);
@@ -389,9 +403,12 @@
 
     const selectedLabel = roleLabel({ groupName: viewModel.groupname, roleName: viewModel.rolename });
     const savedRole = getSavedRole();
-    button.textContent = savedRole
+    const isSavedRole = savedRole
       && String(savedRole.characterId) === String(viewModel.roleId)
-      && String(savedRole.groupId) === String(viewModel.groupid)
+      && String(savedRole.groupId) === String(viewModel.groupid);
+    if (!isSavedRole) clearNativePrefillStatus();
+    button.textContent = savedRole
+      && isSavedRole
       ? `当前默认：${selectedLabel}`
       : `设为默认领取角色（${selectedLabel}）`;
   }
