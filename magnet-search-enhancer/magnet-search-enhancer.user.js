@@ -1,12 +1,11 @@
 // ==UserScript==
 // @name         磁力搜索增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/magnet-search-enhancer
-// @version      0.9.1
+// @version      0.9.2
 // @description  优化磁力搜索结果，对常见的磁力网站类型将磁力链复制、下载按钮直接外显，并含有筛选和去广告功能，更多网站适配中
 // @author       Aizen232503
 // @license      GPL-3.0-only
 // @homepageURL  https://github.com/Aizen232503/BrowserUserScripts/tree/main/magnet-search-enhancer
-// @supportURL   https://github.com/Aizen232503/BrowserUserScripts/issues
 // @updateURL    https://raw.githubusercontent.com/Aizen232503/BrowserUserScripts/main/magnet-search-enhancer/magnet-search-enhancer.user.js
 // @downloadURL  https://raw.githubusercontent.com/Aizen232503/BrowserUserScripts/main/magnet-search-enhancer/magnet-search-enhancer.user.js
 // @match        https://xiongmaogb.top/search*
