@@ -10,6 +10,11 @@ failed=0
 while IFS= read -r script_path; do
   [[ -n "$script_path" ]] || continue
 
+  # 内部脚本即使被强制加入暂存区，也不参与对外发布版本校验。
+  if git check-ignore -q --no-index -- "$script_path"; then
+    continue
+  fi
+
   script_content="$(git show ":$script_path")"
   version="$(awk '$1 == "//" && $2 == "@version" { print $3; exit }' <<<"$script_content")"
   name="$(awk '$1 == "//" && $2 == "@name" { $1 = $2 = ""; sub(/^[[:space:]]+/, ""); print; exit }' <<<"$script_content")"

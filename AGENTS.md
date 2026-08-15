@@ -60,5 +60,5 @@ git status --short
 - 提交前说明提交范围；除非用户明确要求，不推送、不强推。
 - 提交信息使用简洁英文祈使句，概括用户可感知的改动。
 - 不重写历史、不使用强推，除非用户对该次操作明确授权。
-- 仓库提供 `scripts/check-release.sh` 用于校验暂存区的脚本版本、更新日志与根 README 是否同步。克隆仓库后执行一次 `git config core.hooksPath .githooks`，即可在每次提交前自动运行该校验；仍可手动执行该脚本进行检查。
+- 仓库提供 `scripts/check-release.sh` 用于校验暂存区的脚本版本、更新日志与根 README 是否同步；被 `.gitignore` 匹配的内部用户脚本不参与该发布检查。克隆仓库后执行一次 `git config core.hooksPath .githooks`，即可在每次提交前自动运行该校验；仍可手动执行该脚本进行检查。
 - 需要机械地递增单个脚本的补丁版本时，可显式执行 `scripts/bump-version.sh <脚本目录> <更新说明>`；它会同步更新脚本、对应 `CHANGELOG.md` 和根 README。不得在日常提交、hook 或 AI 常规改动中自动调用，除非用户明确指定使用该脚本。
