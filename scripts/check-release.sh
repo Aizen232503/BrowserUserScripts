@@ -27,7 +27,8 @@ while IFS= read -r script_path; do
     continue
   fi
 
-  if ! git diff --cached -U0 -- "$script_path" | grep -Eq '^[+-]// @version[[:space:]]'; then
+  version_diff="$(git diff --cached -U0 -- "$script_path")"
+  if ! grep -Eq '^[+-]// @version[[:space:]]' <<<"$version_diff"; then
     echo "发布校验失败：$script_path 已改动，但 @version 未递增。" >&2
     failed=1
   fi
