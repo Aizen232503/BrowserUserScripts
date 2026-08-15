@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         盛趣登录页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/sdo-page-enhancer
-// @version      1.2.6
+// @version      1.2.7
 // @description  自动勾选盛趣登录协议，并支持配置默认登录方式和账号
 // @author       Aizen232503
 // @license      MIT
@@ -59,14 +59,17 @@
   // 登录页增强
   // ============================================================================
 
-  /** 自动接受协议，并通知原页面可能注册的表单监听器。 */
+  /** 自动接受协议，并通知原页面可能注册的表单监听器；返回是否已可安全切换 Tab。 */
   function acceptAgreement() {
     const checkbox = document.getElementById('isAgreementAccept');
-    if (!checkbox || checkbox.checked) return;
+    if (!checkbox) return false;
 
-    checkbox.checked = true;
-    checkbox.dispatchEvent(new Event('input', { bubbles: true }));
-    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    if (!checkbox.checked) {
+      checkbox.checked = true;
+      checkbox.dispatchEvent(new Event('input', { bubbles: true }));
+      checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    return checkbox.checked;
   }
 
   /**
@@ -78,6 +81,9 @@
 
     const tab = document.querySelector(`#nav > .btn_${config.defaultLoginTab}`);
     if (!tab) return;
+
+    // 官方页面禁止未勾选协议时切换登录方式；复选框未出现时交由后续重试继续处理。
+    if (!acceptAgreement()) return;
 
     if (!tab.classList.contains('cur')) tab.click();
     defaultTabApplied = true;

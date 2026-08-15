@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FF14 道具商城和仓库页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/ff14-item-store-enhancer
-// @version      1.0.16
+// @version      1.0.17
 // @description  为 FF14 道具商城和仓库领取弹窗预填角色，不会自动领取
 // @author       Aizen232503
 // @license      MIT
@@ -86,6 +86,14 @@
 
   function roleLabel(role) {
     return `[${role.groupName}]${role.roleName}`;
+  }
+
+  /** 创建不可选择的下拉提示项，避免“请选择……”被误存为配置值。 */
+  function createSelectPlaceholder(label) {
+    const option = new Option(label, '');
+    option.disabled = true;
+    option.selected = true;
+    return option;
   }
 
   // ============================================================================
@@ -216,7 +224,7 @@
 
     const renderAreas = () => {
       const savedRole = getSavedRole();
-      areaSelect.replaceChildren(new Option('请选择游戏大区', ''));
+      areaSelect.replaceChildren(createSelectPlaceholder('请选择游戏大区'));
       areas.forEach((area) => areaSelect.add(new Option(area.areaName, area.areaId)));
       areaSelect.disabled = false;
       areaSelect.value = savedRole?.areaId ? String(savedRole.areaId) : '';
@@ -224,7 +232,7 @@
 
     const renderCharacters = () => {
       const savedRole = getSavedRole();
-      characterSelect.replaceChildren(new Option('请选择游戏角色', ''));
+      characterSelect.replaceChildren(createSelectPlaceholder('请选择游戏角色'));
       characters.forEach((role) => {
         characterSelect.add(new Option(roleLabel(role), `${role.groupId}:${role.characterId}`));
       });
@@ -238,13 +246,13 @@
       const areaId = areaSelect.value;
       if (!areaId) {
         characters = [];
-        characterSelect.replaceChildren(new Option('请先选择游戏大区', ''));
+        characterSelect.replaceChildren(createSelectPlaceholder('请先选择游戏大区'));
         characterSelect.disabled = true;
         return;
       }
 
       characterSelect.disabled = true;
-      characterSelect.replaceChildren(new Option('正在加载角色……', ''));
+      characterSelect.replaceChildren(createSelectPlaceholder('正在加载角色……'));
       setStatus('正在加载角色……');
       try {
         characters = await fetchCharacters(areaId);
@@ -260,7 +268,7 @@
         );
       } catch (error) {
         characters = [];
-        characterSelect.replaceChildren(new Option('角色加载失败', ''));
+        characterSelect.replaceChildren(createSelectPlaceholder('角色加载失败'));
         setStatus(error.message, true);
       }
     };
@@ -268,8 +276,8 @@
     const loadAreas = async () => {
       areaSelect.disabled = true;
       characterSelect.disabled = true;
-      areaSelect.replaceChildren(new Option('正在加载大区……', ''));
-      characterSelect.replaceChildren(new Option('请先选择游戏大区', ''));
+      areaSelect.replaceChildren(createSelectPlaceholder('正在加载大区……'));
+      characterSelect.replaceChildren(createSelectPlaceholder('请先选择游戏大区'));
       setStatus('正在加载角色信息……');
       try {
         areas = await fetchAreas();
@@ -278,7 +286,7 @@
         if (areaSelect.value) await loadCharacters();
       } catch (error) {
         setStatus(error.message, true);
-        areaSelect.replaceChildren(new Option('大区加载失败', ''));
+        areaSelect.replaceChildren(createSelectPlaceholder('大区加载失败'));
       }
     };
 
@@ -310,7 +318,7 @@
       if (!savedRole) {
         renderAreas();
         characters = [];
-        characterSelect.replaceChildren(new Option('请先选择游戏大区', ''));
+        characterSelect.replaceChildren(createSelectPlaceholder('请先选择游戏大区'));
         characterSelect.disabled = true;
         setStatus('');
         return;
