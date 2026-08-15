@@ -1,25 +1,17 @@
-# SDO Page Enhancer
+# 盛趣登录页面增强
 
-A combined Tampermonkey userscript for supported SDO payment and login pages.
+一个用于增强盛趣登录页面体验的 Tampermonkey 用户脚本。
 
-## Features
+## 功能特性
 
-### FF14 recharge page
+- 自动勾选隐私政策与服务协议复选框。
+- 兼容登录表单延迟加载和局部刷新。
+- 同时触发 `input` 与 `change` 事件，确保页面能够感知勾选状态。
 
-- Restores editing of the recharge account field when it is disabled on the client side.
+## 支持页面
 
-### SDO login page
-
-- Automatically accepts the privacy policy and service agreement checkbox.
-- Handles checkboxes that are added after the initial page load.
-
-Each feature runs only on its corresponding page.
-
-## Supported Pages
-
-- `*://pay.sdo.com/item/GWPAY-100001900*`
 - `https://login.u.sdo.com/sdo/iframe/*`
 
-## Install
+## 安装方法
 
-Open [`sdo-page-enhancer.user.js`](./sdo-page-enhancer.user.js) in a browser with Tampermonkey installed.
+在已经安装 Tampermonkey 的浏览器中打开 [`sdo-page-enhancer.user.js`](./sdo-page-enhancer.user.js) 即可安装。

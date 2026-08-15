@@ -1,11 +1,18 @@
-# Changelog
+# 更新日志
+
+## 1.1.0
+
+- 移除恢复 FF14 充值账号输入框的功能。
+- 移除盛趣充值页面的匹配规则和页面路由逻辑。
+- 脚本现仅负责自动勾选盛趣登录协议。
+- 更新脚本名称、说明和项目文档。
 
 ## 1.0.1
 
-- Simplified the userscript description.
+- 简化用户脚本说明。
 
 ## 1.0.0
 
-- Combined the FF14 recharge-page and SDO login-page enhancements.
-- Added hostname-based feature dispatch so each feature runs only where needed.
-- Added repository metadata, direct update URLs, and GPL-3.0-only licensing.
+- 合并 FF14 充值页面和盛趣登录页面增强功能。
+- 增加按主机名分发功能的逻辑，确保每项功能只在对应页面运行。
+- 增加仓库元数据、直接更新地址和 GPL-3.0-only 许可证声明。

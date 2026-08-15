@@ -7,7 +7,7 @@
 | 脚本 | 功能说明 | 安装 |
 | --- | --- | --- |
 | [磁力搜索增强](./magnet-search-enhancer/) | 过滤搜索结果，并增加磁力链接快捷操作。 | [安装](./magnet-search-enhancer/magnet-search-enhancer.user.js) |
-| [盛趣页面增强](./sdo-page-enhancer/) | 恢复充值账号输入，并自动勾选登录协议。 | [安装](./sdo-page-enhancer/sdo-page-enhancer.user.js) |
+| [盛趣登录页面增强](./sdo-page-enhancer/) | 自动勾选盛趣登录页面的隐私政策与服务协议。 | [安装](./sdo-page-enhancer/sdo-page-enhancer.user.js) |
 
 ## 开源许可
 
