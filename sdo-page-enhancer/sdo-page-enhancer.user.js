@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         盛趣登录页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/sdo-page-enhancer
-// @version      1.2.1
+// @version      1.2.2
 // @description  自动勾选盛趣登录协议，并支持配置默认登录方式和账号
 // @author       Aizen232503
 // @license      GPL-3.0-only
@@ -107,6 +107,16 @@
     applyDefaultAccount();
   }
 
+  /** 同步自定义 Radio 的选中外观，同时保留原生 Radio 的可访问性。 */
+  function updateRadioSelection(root = document) {
+    root.querySelectorAll('input[name="sdo-enhancer-default-tab"]').forEach((radio) => {
+      radio.closest('.sdo-enhancer-radio-option')?.classList.toggle(
+        'sdo-enhancer-radio-selected',
+        radio.checked,
+      );
+    });
+  }
+
   // ============================================================================
   // 页面内配置面板
   // ============================================================================
@@ -164,15 +174,44 @@
         color: #475569;
       }
       .sdo-enhancer-radio-group {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 5px 12px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
       }
-      .sdo-enhancer-radio-group label {
+      .sdo-enhancer-radio-option {
+        position: relative;
         display: flex;
         align-items: center;
-        gap: 4px;
+        justify-content: center;
+        min-width: 0;
+        padding: 7px 4px;
+        border: 1px solid #d6dde8;
+        border-radius: 6px;
+        background: #f8fafc;
+        color: #475569;
         cursor: pointer;
+        transition: color .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease;
+        user-select: none;
+      }
+      .sdo-enhancer-radio-option:hover {
+        border-color: #f08aae;
+        background: #fff4f7;
+      }
+      .sdo-enhancer-radio-option.sdo-enhancer-radio-selected {
+        border-color: #e5004f;
+        background: #e5004f;
+        color: #fff;
+        box-shadow: 0 2px 6px rgba(229, 0, 79, .24);
+      }
+      .sdo-enhancer-radio-option:focus-within {
+        outline: 2px solid rgba(229, 0, 79, .32);
+        outline-offset: 1px;
+      }
+      .sdo-enhancer-radio-option input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
       }
       #sdo-enhancer-default-account {
         width: 100%;
@@ -196,9 +235,9 @@
       <div class="sdo-enhancer-setting-row">
         <span class="sdo-enhancer-setting-label">默认登录方式</span>
         <div class="sdo-enhancer-radio-group">
-          <label><input type="radio" name="sdo-enhancer-default-tab" value="index">密码登录</label>
-          <label><input type="radio" name="sdo-enhancer-default-tab" value="mobile">一键登录</label>
-          <label><input type="radio" name="sdo-enhancer-default-tab" value="code2d">二维码</label>
+          <label class="sdo-enhancer-radio-option"><input type="radio" name="sdo-enhancer-default-tab" value="index"><span>密码登录</span></label>
+          <label class="sdo-enhancer-radio-option"><input type="radio" name="sdo-enhancer-default-tab" value="mobile"><span>一键登录</span></label>
+          <label class="sdo-enhancer-radio-option"><input type="radio" name="sdo-enhancer-default-tab" value="code2d"><span>二维码</span></label>
         </div>
       </div>
       <label class="sdo-enhancer-setting-row">
@@ -218,6 +257,7 @@
       radio.addEventListener('change', () => {
         if (!radio.checked) return;
 
+        updateRadioSelection(root);
         config.defaultLoginTab = radio.value;
         GM_setValue(STORAGE_KEYS.defaultLoginTab, config.defaultLoginTab);
         notifyConfigChanged();
@@ -227,6 +267,7 @@
         status.textContent = `默认登录已设为${LOGIN_TABS[config.defaultLoginTab]}`;
       });
     });
+    updateRadioSelection(root);
 
     accountInput.value = config.defaultAccount;
     accountInput.addEventListener('keydown', (event) => {
@@ -259,6 +300,7 @@
     document.querySelectorAll('input[name="sdo-enhancer-default-tab"]').forEach((radio) => {
       radio.checked = radio.value === config.defaultLoginTab;
     });
+    updateRadioSelection();
 
     const settingInput = document.getElementById('sdo-enhancer-default-account');
     if (settingInput && settingInput !== document.activeElement) {
