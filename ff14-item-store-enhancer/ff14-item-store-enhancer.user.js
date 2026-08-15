@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FF14 道具商城和仓库页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/ff14-item-store-enhancer
-// @version      1.0.6
+// @version      1.0.8
 // @description  为 FF14 道具商城和仓库领取弹窗预填角色，不会自动领取
 // @author       Aizen232503
 // @license      MIT
@@ -169,6 +169,13 @@
         color: #94a3b8;
         cursor: not-allowed;
       }
+      .ff14-item-store-prefill-status {
+        display: inline-block;
+        margin: 8px 0 0 10px;
+        color: #64748b;
+        font-size: 12px;
+      }
+      .ff14-item-store-prefill-status.is-error { color: #b45309; }
     `;
     document.head.appendChild(style);
 
@@ -305,12 +312,30 @@
     return document.querySelector('#personal-center-gameitem')?.__vue__ || null;
   }
 
+  function getAcquireDialog() {
+    return document.querySelector(
+      '.el-dialog[role="dialog"][aria-label="选择收货游戏角色"]',
+    );
+  }
+
+  function setNativePrefillStatus(message, isError = false) {
+    const footer = getAcquireDialog()?.querySelector('.el-dialog__footer');
+    if (!footer) return;
+
+    let status = footer.querySelector('.ff14-item-store-prefill-status');
+    if (!status) {
+      status = document.createElement('span');
+      status.className = 'ff14-item-store-prefill-status';
+      footer.appendChild(status);
+    }
+    status.textContent = message;
+    status.classList.toggle('is-error', isError);
+  }
+
   /** 在商城原生领取弹窗底部增加“设为默认领取角色”按钮，不改变原有领取按钮。 */
   function addNativeSaveButton(viewModel) {
-    const dialogWrapper = [...document.querySelectorAll('.el-dialog__wrapper')].find((wrapper) => (
-      wrapper.offsetParent !== null && wrapper.textContent.includes('选择游戏大区')
-    ));
-    const footer = dialogWrapper?.querySelector('.el-dialog__footer');
+    const dialog = getAcquireDialog();
+    const footer = dialog?.querySelector('.el-dialog__footer');
     if (!footer) return;
 
     let button = footer.querySelector('.ff14-item-store-native-save');
@@ -432,9 +457,15 @@
       filling = true;
       handledDialogKey = dialogKey;
       try {
-        await prefillRole(viewModel, configuredRole);
+        const filled = await prefillRole(viewModel, configuredRole);
+        if (filled) {
+          setNativePrefillStatus(`已预填默认角色：${roleLabel(configuredRole)}`);
+        } else {
+          setNativePrefillStatus('未找到已保存的角色，请在右下角重新设置默认角色。', true);
+        }
       } catch (error) {
         console.warn('[FF14 默认领取角色] 预填角色失败：', error);
+        setNativePrefillStatus('默认角色预填失败，请稍后重试或重新设置。', true);
       } finally {
         filling = false;
       }
