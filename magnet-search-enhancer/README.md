@@ -47,7 +47,7 @@
 
 ## 安装方法
 
-在已经安装 Tampermonkey 的浏览器中打开 [`magnet-search-enhancer.user.js`](./magnet-search-enhancer.user.js) 即可安装。
+在已经安装 Tampermonkey 的浏览器中打开 [Greasy Fork 脚本页面](https://greasyfork.org/zh-CN/scripts/591460)，点击“安装此脚本”即可。
 
 ## 开发说明
 
