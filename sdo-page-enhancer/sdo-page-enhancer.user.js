@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         盛趣登录页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/sdo-page-enhancer
-// @version      1.2.7
+// @version      1.2.8
 // @description  自动勾选盛趣登录协议，并支持配置默认登录方式和账号
 // @author       Aizen232503
 // @license      MIT
@@ -129,17 +129,11 @@
   // ============================================================================
 
   /**
-   * 新版登录页由外层页面承载 iframe，设置面板优先显示在外层页面右下角。
-   * 直接访问登录表单或旧版嵌入方式无法由外层脚本承载时，则显示在当前页面。
+   * 配置入口显示在实际登录表单内，不在仅用于承载 iframe 的外层页面重复创建。
+   * 这样无论表单被外层 LoginSDO.php 嵌入还是被直接访问，都有同一个入口。
    */
   function shouldCreateSettingsPanel() {
-    if (window.top === window.self) return true;
-
-    try {
-      return !window.top.location.pathname.startsWith('/sdo/Login/LoginSDO.php');
-    } catch {
-      return true;
-    }
+    return location.pathname !== '/sdo/Login/LoginSDO.php';
   }
 
   /** 创建与磁力脚本一致的右下角固定设置面板，两个配置项始终显示。 */
