@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         盛趣登录页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/sdo-page-enhancer
-// @version      1.2.8
+// @version      1.2.9
 // @description  自动勾选盛趣登录协议，并支持配置默认登录方式和账号
 // @author       Aizen232503
 // @license      MIT
@@ -49,7 +49,7 @@
   let defaultTabApplied = false;
   let filledAccountInputs = new WeakSet();
 
-  /** 每次设置操作都递增修订号，确保外层页面和 iframe 即使保存相同值也会同步。 */
+  /** 递增配置修订号，通知同源的其他脚本文档重新读取设置。 */
   function notifyConfigChanged() {
     const revision = Number(GM_getValue(STORAGE_KEYS.applyRevision, 0)) || 0;
     GM_setValue(STORAGE_KEYS.applyRevision, revision + 1);
@@ -59,7 +59,7 @@
   // 登录页增强
   // ============================================================================
 
-  /** 自动接受协议，并通知原页面可能注册的表单监听器；返回是否已可安全切换 Tab。 */
+  /** 勾选登录协议并派发表单事件；返回当前是否已接受协议。 */
   function acceptAgreement() {
     const checkbox = document.getElementById('isAgreementAccept');
     if (!checkbox) return false;
@@ -73,8 +73,8 @@
   }
 
   /**
-   * 官方页面会在接口返回后动态创建 Tab，因此只在目标 Tab 首次出现时应用。
-   * 应用成功后不再自动切换，避免覆盖用户本次页面中的手动选择。
+   * 目标登录 Tab 可能延迟创建，因此在节点出现后才应用默认选择。
+   * 每个文档只自动应用一次；force 用于用户修改配置后立即重新应用。
    */
   function applyDefaultLoginTab(force = false) {
     if (defaultTabApplied && !force) return;
@@ -82,7 +82,7 @@
     const tab = document.querySelector(`#nav > .btn_${config.defaultLoginTab}`);
     if (!tab) return;
 
-    // 官方页面禁止未勾选协议时切换登录方式；复选框未出现时交由后续重试继续处理。
+    // 只有在协议复选框已出现且勾选成功后才切换登录方式。
     if (!acceptAgreement()) return;
 
     if (!tab.classList.contains('cur')) tab.click();
@@ -101,7 +101,7 @@
       input.dispatchEvent(new Event(eventName, { bubbles: true }));
     });
 
-    // 官方输入框使用独立 label 模拟 placeholder，需要同步其可见状态。
+    // 输入框使用独立 label 显示占位文字，填入账号后同步隐藏。
     const inputWrapper = input.parentElement;
     inputWrapper?.querySelector('.cell_input_notice')?.classList.add('cell_input_notice_hide');
     inputWrapper?.classList.add('width_clear_btn');
@@ -136,7 +136,7 @@
     return location.pathname !== '/sdo/Login/LoginSDO.php';
   }
 
-  /** 创建与磁力脚本一致的右下角固定设置面板，两个配置项始终显示。 */
+  /** 在登录表单右下角创建可折叠的设置面板。 */
   function createSettingsPanel() {
     if (!shouldCreateSettingsPanel()
       || !document.body
@@ -269,7 +269,7 @@
         <label class="sdo-enhancer-setting-row">
           <span class="sdo-enhancer-setting-label">默认账号（按 Enter 生效）</span>
           <input id="sdo-enhancer-default-account" type="text" maxlength="50"
-            autocomplete="off" placeholder="留空并回车可清除设置">
+            autocomplete="off" placeholder="留空并按 Enter 可清除设置">
         </label>
         <div id="sdo-enhancer-settings-status" role="status" aria-live="polite">设置会保存在本地</div>
       </section>
@@ -320,7 +320,7 @@
     });
   }
 
-  // 外层页面与登录 iframe 是两个脚本实例，通过共享存储监听实现即时联动。
+  // 监听配置修订号，使同源文档中的脚本实例同步登录方式和账号。
   GM_addValueChangeListener(STORAGE_KEYS.applyRevision, () => {
     const storedLoginTab = GM_getValue(STORAGE_KEYS.defaultLoginTab, 'index');
     config.defaultLoginTab = Object.prototype.hasOwnProperty.call(LOGIN_TABS, storedLoginTab)
@@ -350,12 +350,12 @@
   if (isLoginFormDocument) {
     applyEnhancements();
 
-    // 定时重试覆盖 iframe 初始加载期间的多阶段渲染。
+    // 在表单的分阶段初始化期间定时重试。
     [100, 300, 600, 1000, 2000, 3000].forEach((delay) => {
       window.setTimeout(applyEnhancements, delay);
     });
 
-    // 兼容官方页面异步创建 Tab、替换表单或进行局部刷新。
+    // 在 Tab 或表单节点被动态创建、替换后重新应用增强。
     new MutationObserver(applyEnhancements).observe(document.documentElement, {
       childList: true,
       subtree: true,
