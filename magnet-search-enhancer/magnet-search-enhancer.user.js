@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         磁力搜索增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/magnet-search-enhancer
-// @version      1.0.2
+// @version      1.0.3
 // @description  优化磁力搜索结果，对常见的磁力网站类型将磁力链复制、下载按钮直接外显，并含有筛选和去广告功能，更多网站适配中
 // @author       Aizen232503
 // @license      MIT
@@ -179,12 +179,13 @@
   }
 
   /**
-   * 创建全局自动获取面板，并按批次调度缓存任务。
+   * 创建右下角全局配置面板，并按批次调度缓存任务。
+   * 支持二次筛选的页面可传入回调，将共享开关统一放入此面板。
    * 失败任务追加到队尾，使尚未尝试的新任务优先；每批共享同一并发上限。
    */
-  function addAutoFetchControl(getDetailUrls, cache) {
+  function addSettingsControl(getDetailUrls, cache, onSecondaryFilterChange = null) {
     const control = document.createElement('aside');
-    control.id = 'mse-auto-fetch-control';
+    control.id = 'mse-settings-control';
     control.style.cssText = [
       'position:fixed',
       'right:16px',
@@ -210,6 +211,33 @@
 
     const labelText = document.createElement('span');
     labelText.textContent = '自动获取磁力链接';
+
+    let secondaryFilterLabel = null;
+    if (onSecondaryFilterChange) {
+      secondaryFilterLabel = document.createElement('label');
+      secondaryFilterLabel.style.cssText = [
+        'display:flex',
+        'align-items:center',
+        'gap:7px',
+        'margin-bottom:8px',
+        'padding-bottom:8px',
+        'border-bottom:1px solid #e2e8f0',
+        'cursor:pointer',
+        'font-weight:700',
+      ].join(';');
+
+      const secondaryFilterCheckbox = document.createElement('input');
+      secondaryFilterCheckbox.type = 'checkbox';
+      secondaryFilterCheckbox.checked = getSecondaryFilterEnabled();
+      secondaryFilterCheckbox.addEventListener('change', () => {
+        setSecondaryFilterEnabled(secondaryFilterCheckbox.checked);
+        onSecondaryFilterChange(secondaryFilterCheckbox.checked);
+      });
+
+      const secondaryFilterText = document.createElement('span');
+      secondaryFilterText.textContent = '使用二次筛选';
+      secondaryFilterLabel.append(secondaryFilterCheckbox, secondaryFilterText);
+    }
 
     const settings = document.createElement('div');
     settings.style.cssText = [
@@ -249,6 +277,7 @@
     status.textContent = checkbox.checked ? '等待获取…' : '已关闭';
 
     label.append(checkbox, labelText);
+    if (secondaryFilterLabel) control.append(secondaryFilterLabel);
     control.append(label, settings, status);
     document.body.append(control);
 
@@ -416,9 +445,7 @@
     const style = document.createElement('style');
     style.textContent = `
       #mse-skrbt-bar { display:flex; align-items:center; gap:8px; margin:12px 0; padding:10px; border:1px solid #ddd; background:#f8f8f8; }
-      #mse-skrbt-bar .mse-secondary-filter-toggle { display:flex; align-items:center; gap:4px; margin:0; white-space:nowrap; }
       #mse-skrbt-bar input[type="search"] { min-width:160px; max-width:360px; }
-      #mse-skrbt-bar .mse-secondary-filter-toggle input { margin:0; }
       #mse-skrbt-count { color:#666; white-space:nowrap; }
       .mse-skrbt-index { display:inline-block; min-width:28px; color:#777; font-weight:700; }
       .mse-skrbt-actions { display:inline-flex; flex-wrap:wrap; gap:6px; align-items:center; margin-left:10px; }
@@ -433,9 +460,6 @@
     const toolbar = document.createElement('div');
     toolbar.id = 'mse-skrbt-bar';
     toolbar.innerHTML = `
-      <label class="mse-secondary-filter-toggle">
-        <input type="checkbox"> 使用二次筛选
-      </label>
       <input class="form-control" type="search" placeholder="在本页结果中筛选" aria-label="在本页结果中筛选">
       <button class="btn btn-default" type="button" aria-expanded="true">折叠全部</button>
       <span id="mse-skrbt-count"></span>
@@ -547,14 +571,13 @@
       addCacheStatusMarker(magnetCache, detailUrl, metaRow);
     });
 
-    const secondaryFilterToggle = toolbar.querySelector('.mse-secondary-filter-toggle input');
     const filterInput = toolbar.querySelector('input[type="search"]');
     const countLabel = toolbar.querySelector('#mse-skrbt-count');
     const allToggle = toolbar.querySelector('button');
-    secondaryFilterToggle.checked = getSecondaryFilterEnabled();
-    filterInput.disabled = !secondaryFilterToggle.checked;
+    let secondaryFilterEnabled = getSecondaryFilterEnabled();
+    filterInput.style.display = secondaryFilterEnabled ? '' : 'none';
     const applyFilter = () => {
-      const query = secondaryFilterToggle.checked
+      const query = secondaryFilterEnabled
         ? filterInput.value.trim().toLocaleLowerCase()
         : '';
       let visibleCount = 0;
@@ -565,12 +588,12 @@
       });
       countLabel.textContent = `显示 ${visibleCount} / ${results.length} 条`;
     };
-    secondaryFilterToggle.addEventListener('change', () => {
-      setSecondaryFilterEnabled(secondaryFilterToggle.checked);
-      filterInput.disabled = !secondaryFilterToggle.checked;
+    const setSecondaryFilterVisible = (enabled) => {
+      secondaryFilterEnabled = enabled;
+      filterInput.style.display = enabled ? '' : 'none';
       applyFilter();
-      if (secondaryFilterToggle.checked) filterInput.focus();
-    });
+      if (enabled) filterInput.focus();
+    };
     filterInput.addEventListener('input', applyFilter);
     allToggle.addEventListener('click', () => {
       const shouldExpand = allToggle.getAttribute('aria-expanded') === 'false';
@@ -580,10 +603,11 @@
     });
     applyFilter();
 
-    addAutoFetchControl(
+    addSettingsControl(
       () => results.map((result) => result.querySelector(':scope > .rrmi a[href*="/detail/"]')?.href)
         .filter(Boolean),
       magnetCache,
+      setSecondaryFilterVisible,
     );
   }
 
@@ -893,17 +917,6 @@
         min-width: 160px;
         max-width: 360px;
       }
-      #xm-enhancer-bar .mse-secondary-filter-toggle {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        margin: 0;
-        white-space: nowrap;
-      }
-      #xm-enhancer-bar .mse-secondary-filter-toggle input {
-        min-width: auto;
-        margin: 0;
-      }
       #xm-enhancer-count { color: #666; white-space: nowrap; }
       .xm-result-index {
         display: inline-block;
@@ -960,9 +973,6 @@
     const toolbar = document.createElement('div');
     toolbar.id = 'xm-enhancer-bar';
     toolbar.innerHTML = `
-      <label class="mse-secondary-filter-toggle">
-        <input id="xm-filter-enabled" type="checkbox"> 使用二次筛选
-      </label>
       <input id="xm-filter" class="form-control" type="search"
              placeholder="在本页结果中筛选" aria-label="在本页结果中筛选">
       <button id="xm-toggle-all" class="btn btn-default" type="button"
@@ -974,10 +984,9 @@
     resultContainer.insertBefore(toolbar, firstResult);
 
     const countLabel = toolbar.querySelector('#xm-enhancer-count');
-    const secondaryFilterToggle = toolbar.querySelector('#xm-filter-enabled');
     const filterInput = toolbar.querySelector('#xm-filter');
-    secondaryFilterToggle.checked = getSecondaryFilterEnabled();
-    filterInput.disabled = !secondaryFilterToggle.checked;
+    let secondaryFilterEnabled = getSecondaryFilterEnabled();
+    filterInput.style.display = secondaryFilterEnabled ? '' : 'none';
 
     /** 同步单条结果的文件列表、按钮文字及无障碍展开状态。 */
     function setFilesVisible(result, visible) {
@@ -1126,7 +1135,7 @@
 
     /** 根据输入框内容过滤当前页结果，并更新可见数量。 */
     function applyFilter() {
-      const query = secondaryFilterToggle.checked
+      const query = secondaryFilterEnabled
         ? filterInput.value.trim().toLocaleLowerCase()
         : '';
       let visibleCount = 0;
@@ -1140,12 +1149,12 @@
       countLabel.textContent = `显示 ${visibleCount} / ${results.length} 条`;
     }
 
-    secondaryFilterToggle.addEventListener('change', () => {
-      setSecondaryFilterEnabled(secondaryFilterToggle.checked);
-      filterInput.disabled = !secondaryFilterToggle.checked;
+    const setSecondaryFilterVisible = (enabled) => {
+      secondaryFilterEnabled = enabled;
+      filterInput.style.display = enabled ? '' : 'none';
       applyFilter();
-      if (secondaryFilterToggle.checked) filterInput.focus();
-    });
+      if (enabled) filterInput.focus();
+    };
     filterInput.addEventListener('input', applyFilter);
     toolbar.querySelector('#xm-toggle-all').addEventListener('click', (event) => {
       const button = event.currentTarget;
@@ -1158,9 +1167,10 @@
 
     applyFilter();
 
-    addAutoFetchControl(
+    addSettingsControl(
       () => results.map((result) => getResultDetailLink(result)?.href).filter(Boolean),
       magnetCache,
+      setSecondaryFilterVisible,
     );
   }
 
@@ -1299,7 +1309,7 @@
       result.append(actions);
     });
 
-    addAutoFetchControl(
+    addSettingsControl(
       () => [...document.querySelectorAll('article.resource-card h2 a[href*="/hash/"]')]
         .map((link) => link.href),
       magnetCache,
