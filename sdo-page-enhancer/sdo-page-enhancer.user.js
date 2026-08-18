@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         盛趣登录页面增强
 // @namespace    https://github.com/Aizen232503/BrowserUserScripts/sdo-page-enhancer
-// @version      1.2.9
+// @version      1.2.10
 // @description  自动勾选盛趣登录协议，并支持配置默认登录方式和账号
 // @author       Aizen232503
 // @license      MIT
@@ -112,6 +112,7 @@
     acceptAgreement();
     applyDefaultLoginTab();
     applyDefaultAccount();
+    createSettingsPanel();
   }
 
   /** 同步自定义 Radio 的选中外观，同时保留原生 Radio 的可访问性。 */
@@ -136,18 +137,22 @@
     return location.pathname !== '/sdo/Login/LoginSDO.php';
   }
 
-  /** 在登录表单右下角创建可折叠的设置面板。 */
+  /** 在实际登录框右下角创建可折叠的设置面板。 */
   function createSettingsPanel() {
     if (!shouldCreateSettingsPanel()
       || !document.body
       || document.getElementById('sdo-enhancer-settings')) return;
 
+    // 将入口挂在登录框节点上，避免直接访问表单页时落到整个页面的右下角。
+    const loginBox = document.querySelector('.login_box');
+    if (!loginBox) return;
+
     const style = document.createElement('style');
     style.textContent = `
       #sdo-enhancer-settings {
-        position: fixed;
-        right: 16px;
-        bottom: 16px;
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
         z-index: 2147483646;
         display: flex;
         justify-content: flex-end;
@@ -274,7 +279,7 @@
         <div id="sdo-enhancer-settings-status" role="status" aria-live="polite">设置会保存在本地</div>
       </section>
     `;
-    document.body.appendChild(root);
+    loginBox.appendChild(root);
 
     const toggle = root.querySelector('#sdo-enhancer-settings-toggle');
     const panel = root.querySelector('#sdo-enhancer-settings-panel');
